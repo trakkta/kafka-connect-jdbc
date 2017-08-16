@@ -16,6 +16,13 @@
 
 package io.confluent.connect.jdbc.source;
 
+import io.confluent.connect.jdbc.sink.dialect.DbDialect;
+import io.confluent.connect.jdbc.sink.dialect.HanaDialect;
+import io.confluent.connect.jdbc.sink.dialect.MySqlDialect;
+import io.confluent.connect.jdbc.sink.dialect.OracleDialect;
+import io.confluent.connect.jdbc.sink.dialect.PostgreSqlDialect;
+import io.confluent.connect.jdbc.sink.dialect.SqliteDialect;
+import io.confluent.connect.jdbc.sink.dialect.SqlServerDialect;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -61,16 +68,21 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
   private String incrementingColumn;
   private long timestampDelay;
   private TimestampIncrementingOffset offset;
+  private int limitRowCount;
+  private DbDialect dialect;
 
   public TimestampIncrementingTableQuerier(QueryMode mode, String name, String topicPrefix,
                                            String timestampColumn, String incrementingColumn,
                                            Map<String, Object> offsetMap, Long timestampDelay,
-                                           String schemaPattern, boolean mapNumerics) {
+                                           String schemaPattern, boolean mapNumerics,
+                                           int limitRowCount, DbDialect dialect) {
     super(mode, name, topicPrefix, schemaPattern, mapNumerics);
     this.timestampColumn = timestampColumn;
     this.incrementingColumn = incrementingColumn;
     this.timestampDelay = timestampDelay;
     this.offset = TimestampIncrementingOffset.fromMap(offsetMap);
+    this.limitRowCount = limitRowCount;
+    this.dialect = dialect;
   }
 
   @Override
@@ -90,7 +102,9 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
         builder.append(JdbcUtils.quoteString(name, quoteString));
         break;
       case QUERY:
-        builder.append(query);
+        builder.append(isLimitRows() && (dialect instanceof SqlServerDialect) ?
+                       query.replaceFirst("SELECT", "SELECT TOP " + getLimitRowsStr()) :
+                       query);
         break;
       default:
         throw new ConnectException("Unknown mode encountered when preparing query: " + mode.toString());
@@ -120,6 +134,12 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
       builder.append(") OR ");
       builder.append(JdbcUtils.quoteString(timestampColumn, quoteString));
       builder.append(" > ?)");
+
+      if (isLimitRows() && (dialect instanceof OracleDialect)) {
+        builder.append(" AND ROWNUM <= ");
+        builder.append(getLimitRowsStr());
+      }
+
       builder.append(" ORDER BY ");
       builder.append(JdbcUtils.quoteString(timestampColumn, quoteString));
       builder.append(",");
@@ -129,6 +149,12 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
       builder.append(" WHERE ");
       builder.append(JdbcUtils.quoteString(incrementingColumn, quoteString));
       builder.append(" > ?");
+
+      if (isLimitRows() && (dialect instanceof OracleDialect)) {
+        builder.append(" AND ROWNUM <= ");
+        builder.append(getLimitRowsStr());
+      }
+
       builder.append(" ORDER BY ");
       builder.append(JdbcUtils.quoteString(incrementingColumn, quoteString));
       builder.append(" ASC");
@@ -137,10 +163,26 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
       builder.append(JdbcUtils.quoteString(timestampColumn, quoteString));
       builder.append(" > ? AND ");
       builder.append(JdbcUtils.quoteString(timestampColumn, quoteString));
-      builder.append(" < ? ORDER BY ");
+      builder.append(" < ?");
+
+      if (isLimitRows() && (dialect instanceof OracleDialect)) {
+        builder.append(" AND ROWNUM <= ");
+        builder.append(getLimitRowsStr());
+      }
+
+      builder.append(" ORDER BY ");
       builder.append(JdbcUtils.quoteString(timestampColumn, quoteString));
       builder.append(" ASC");
     }
+
+    if (isLimitRows() && ((dialect instanceof MySqlDialect) ||
+                          (dialect instanceof PostgreSqlDialect) ||
+                          (dialect instanceof SqliteDialect) ||
+                          (dialect instanceof HanaDialect))) {
+      builder.append(" LIMIT ");
+      builder.append(getLimitRowsStr());
+    }
+
     String queryString = builder.toString();
     log.debug("{} prepared SQL query: {}", this, queryString);
     stmt = db.prepareStatement(queryString);
@@ -247,6 +289,14 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
            || incrementingColumnValue instanceof Integer
            || incrementingColumnValue instanceof Short
            || incrementingColumnValue instanceof Byte;
+  }
+
+  private boolean isLimitRows() {
+    return limitRowCount > 0 && dialect != null;
+  }
+
+  private String getLimitRowsStr() {
+    return Integer.toString(limitRowCount);
   }
 
   @Override

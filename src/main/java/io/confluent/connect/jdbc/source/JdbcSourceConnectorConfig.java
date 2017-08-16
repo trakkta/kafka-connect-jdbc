@@ -113,6 +113,11 @@ public class JdbcSourceConnectorConfig extends AbstractConfig {
   public static final String TIMESTAMP_COLUMN_NAME_DEFAULT = "";
   private static final String TIMESTAMP_COLUMN_NAME_DISPLAY = "Timestamp Column Name";
 
+  public static final String LIMIT_ROW_COUNT_CONFIG = "limit.row.count";
+  private static final String LIMIT_ROW_COUNT_DOC = "Adds LIMIT qualifier to query. If <= 0 then do not limit.";
+  private static final int LIMIT_ROW_COUNT_DEFAULT = 0;
+  private static final String LIMIT_ROW_COUNT_DISPLAY = "Limit Row Count";
+
   public static final String TABLE_POLL_INTERVAL_MS_CONFIG = "table.poll.interval.ms";
   private static final String TABLE_POLL_INTERVAL_MS_DOC =
       "Frequency in ms to poll for new or removed tables, which may result in updated task "
@@ -221,9 +226,11 @@ public class JdbcSourceConnectorConfig extends AbstractConfig {
                 MODE_DEPENDENTS_RECOMMENDER)
         .define(TIMESTAMP_COLUMN_NAME_CONFIG, Type.STRING, TIMESTAMP_COLUMN_NAME_DEFAULT, Importance.MEDIUM, TIMESTAMP_COLUMN_NAME_DOC, MODE_GROUP, 3, Width.MEDIUM, TIMESTAMP_COLUMN_NAME_DISPLAY,
                 MODE_DEPENDENTS_RECOMMENDER)
-        .define(VALIDATE_NON_NULL_CONFIG, Type.BOOLEAN, VALIDATE_NON_NULL_DEFAULT, Importance.LOW, VALIDATE_NON_NULL_DOC, MODE_GROUP, 4, Width.SHORT, VALIDATE_NON_NULL_DISPLAY,
+        .define(LIMIT_ROW_COUNT_CONFIG, Type.INT, LIMIT_ROW_COUNT_DEFAULT, Importance.MEDIUM, LIMIT_ROW_COUNT_DOC, MODE_GROUP, 4, Width.MEDIUM, LIMIT_ROW_COUNT_DISPLAY,
                 MODE_DEPENDENTS_RECOMMENDER)
-        .define(QUERY_CONFIG, Type.STRING, QUERY_DEFAULT, Importance.MEDIUM, QUERY_DOC, MODE_GROUP, 5, Width.SHORT, QUERY_DISPLAY)
+        .define(VALIDATE_NON_NULL_CONFIG, Type.BOOLEAN, VALIDATE_NON_NULL_DEFAULT, Importance.LOW, VALIDATE_NON_NULL_DOC, MODE_GROUP, 5, Width.SHORT, VALIDATE_NON_NULL_DISPLAY,
+                MODE_DEPENDENTS_RECOMMENDER)
+        .define(QUERY_CONFIG, Type.STRING, QUERY_DEFAULT, Importance.MEDIUM, QUERY_DOC, MODE_GROUP, 6, Width.SHORT, QUERY_DISPLAY)
         .define(POLL_INTERVAL_MS_CONFIG, Type.INT, POLL_INTERVAL_MS_DEFAULT, Importance.HIGH, POLL_INTERVAL_MS_DOC, CONNECTOR_GROUP, 1, Width.SHORT, POLL_INTERVAL_MS_DISPLAY)
         .define(BATCH_MAX_ROWS_CONFIG, Type.INT, BATCH_MAX_ROWS_DEFAULT, Importance.LOW, BATCH_MAX_ROWS_DOC, CONNECTOR_GROUP, 2, Width.SHORT, BATCH_MAX_ROWS_DISPLAY)
         .define(TABLE_POLL_INTERVAL_MS_CONFIG, Type.LONG, TABLE_POLL_INTERVAL_MS_DEFAULT, Importance.LOW, TABLE_POLL_INTERVAL_MS_DOC, CONNECTOR_GROUP, 3, Width.SHORT, TABLE_POLL_INTERVAL_MS_DISPLAY)
